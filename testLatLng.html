@@ -1,0 +1,125 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /> 
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
+<link href="style.css" rel="stylesheet" type="text/css" />
+<title>Download Maps</title> 
+<script type="text/javascript">
+    var map;
+    var center;
+    var centers = new Array();
+    var latMove = 0.0023;
+    var lngMove = 0.0023;
+    
+  function initialize() {
+      var myOptions = {
+              zoom: 13,
+              mapTypeId: google.maps.MapTypeId.ROADMAP,
+              zoomControl: true,
+              zoomControlOptions: {
+                style: google.maps.ZoomControlStyle.SMALL,
+                position: google.maps.ControlPosition.TOP_LEFT
+              },
+              panControl: false,
+              mapTypeControl: false,
+              scaleControl: false,
+              streetViewControl: false,
+              overviewMapControl: false
+      };
+      map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+      navigator.geolocation.getCurrentPosition(function(position){
+        var myLatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        map.setCenter(myLatlng);
+      });
+      
+      //Create a div button to start caching map area around marker
+        var controlDiv = document.createElement('DIV');
+        var mapDownloadControl = new mapDownloadControlConstruct(controlDiv, map);
+        
+        controlDiv.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv);
+      
+   }
+   
+   //Create a button to enable user to start caching the area around markers
+  function mapDownloadControlConstruct(controlDiv, map){
+        controlDiv.style.padding = '5px';
+        
+        //Set CSS for Control border
+        var controlUI = document.createElement('DIV');
+        controlUI.style.backgroundColor = '#3b5998';
+        controlUI.style.color = '#ffffff';
+        controlUI.style.textAlign = 'center';
+        controlUI.style.cursor = 'pointer';
+        controlDiv.appendChild(controlUI);
+        
+        //Set CSS to control interior
+        var controlText = document.createElement('DIV');
+        controlText.style.fontFamily = 'Helvetica';
+        controlText.style.fontSize = '12px';
+        controlText.style.padding = '5px';
+        controlText.style.fontWeight = 'bold';
+        controlText.innerHTML = 'Get Map';
+        controlUI.appendChild(controlText);
+        
+        //Setup the click event listener
+        google.maps.event.addDomListener(controlUI, 'click', downloadMaps);
+        
+  }
+  
+  function downloadMaps(){
+        
+        //Get the center of the map
+        center = map.getCenter();
+        
+        var latitude = center.lat();
+        var longitude = center.lng();
+        
+        //Set as center and download necessary zoom levels with timeouts
+        var currentTime = 0;
+        var i;
+        var j;
+        for(i = -3; i <=3; i++){
+            for(j = -3; j<=3; j++){
+                currentTime = downloadArea(currentTime, latMove*i, lngMove*j);
+            }
+        }
+        
+        //center = google.maps.LatLng(latitude, longitude+0.009);
+        //currentTime = downloadArea(currentTime);
+  }
+  
+  function downloadArea(currentTime, latAdd, lngAdd){
+        var centerNew = new google.maps.LatLng(center.lat()+latAdd, center.lng()+lngAdd);
+        var rmarker1 = new google.maps.Marker({
+            map: map,
+            position: centerNew
+        });
+        var str = "map.setCenter(new google.maps.LatLng(center.lat() + "+ latAdd + ", center.lng() + " + lngAdd + "));"
+        setTimeout(str, currentTime + 3000);
+        setTimeout("map.setZoom(21)", currentTime + 6000);
+        setTimeout("map.setZoom(20)", currentTime + 9000);
+        setTimeout("map.setZoom(19)", currentTime + 12000);
+        setTimeout("map.setZoom(18)", currentTime + 15000);
+        setTimeout("map.setZoom(17)", currentTime + 18000);
+        setTimeout("map.setZoom(16)", currentTime + 21000);
+        return currentTime + 24000;
+  }
+    
+  function loadScript() {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "http://maps.googleapis.com/maps/api/js?sensor=true&callback=initialize";
+    document.body.appendChild(script);
+  }
+  
+  window.onload = loadScript;
+
+</script>
+</head> 
+<body>
+	<div id="map_canvas"></div> 
+</body> 
+</html> 
