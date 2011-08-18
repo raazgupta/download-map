@@ -2,7 +2,7 @@
 <html> 
 <head> 
 <! Styling for the iphone to not enable the user to change scale and use up entire screen>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" /> 
+<meta name="viewport" content="width=device-width,initial-scale=1.0, user-scalable=no" /> 
 <meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
 <link href="style.css" rel="stylesheet" type="text/css" />
 <title>Download Maps</title> 
@@ -116,7 +116,6 @@
         controlText.style.fontFamily = 'Helvetica';
         controlText.style.fontSize = '12px';
         controlText.style.padding = '5px';
-        controlText.style.fontWeight = 'bold';
         controlText.innerHTML = divText;
         controlUI.appendChild(controlText);
         
@@ -197,8 +196,8 @@
   //After a specified amount of time set the center of the map to lat and lng
   function downloadArea(currentTime, lat, lng){
         var str = "map.setCenter(new google.maps.LatLng(" + lat + ", " + lng + "));"
-        setTimeout(str, currentTime + 1000);
-        return currentTime + 1000;
+        setTimeout(str, currentTime + 2000);
+        return currentTime + 2000;
   }
   
   //When the user clicks the map, a marker is placed on the map and pushed into dMarker array
