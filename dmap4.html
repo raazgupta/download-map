@@ -1,0 +1,230 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+<! Styling for the iphone to not enable the user to change scale and use up entire screen>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" /> 
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
+<link href="style.css" rel="stylesheet" type="text/css" />
+<title>Download Maps</title> 
+<script type="text/javascript">
+  //This is the object containing the entire map
+  var map;
+  //This object contains all the markers placed by the user
+  var dMarkers;
+  //This object shows a circle around the area the user is at. Uses navigator.gelocation 
+  //property of the browser to determine the users location
+  var positionCircle;
+  //This is a global variable which is used to show a 'Downloading' message to user when needed
+  var downloadDiv;
+  //This the area around the marker used to scan
+  //1 degree latitude/longitude = 111 km approx.
+  //Hence 0.0023 degrees is about 250m
+  var latMove = 0.0023;
+  var lngMove = 0.0023;
+  //This determines the radius of the scan. If set to 1, then only 1 latMove or lngMove
+  //length is scanned
+  var maxScan = 2;
+  //Hence with the current setting, about a 1000m radius around the marker is downloaded
+  
+  //Call this function once the brower window has loaded and obtained the google maps api
+  function initialize() {
+      //Initial settings to display the map
+      //Only show the zoom control as double click adds a marker and should be avoided
+      var myOptions = {
+              zoom: 16,
+              mapTypeId: google.maps.MapTypeId.ROADMAP,
+              zoomControl: true,
+              zoomControlOptions: {
+                style: google.maps.ZoomControlStyle.SMALL,
+                position: google.maps.ControlPosition.MIDDLE_RIGHT
+              },
+              panControl: false,
+              mapTypeControl: false,
+              scaleControl: false,
+              streetViewControl: false,
+              overviewMapControl: false
+      };
+      map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+      navigator.geolocation.getCurrentPosition(function(position){
+        var myLatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        map.setCenter(myLatlng);
+      });
+      
+      //Initialize the position circle
+      var circleOptions = {
+                            strokeColor: "#3b5998",
+                            strokeOpacity: 0.8,
+                            strokeWeight: 1,
+                            fillColor: "#e0eaff",
+                            fillOpacity: 0.3,
+                            map: map,
+                            zIndex: -1
+      };
+      positionCircle = new google.maps.Circle(circleOptions);
+							
+	  // Initialize the dMarkers arrray to store all marker locations
+	  // that need to be downloaded
+	  dMarkers = new Array();
+	  
+	  //Create a div button to remove the last marker you added, if done by mistake
+        var controlDiv1 = document.createElement('DIV');
+        controlConstruct(controlDiv1, map, "UNDO", removeMarker);
+        controlDiv1.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv1);
+        
+        //Create a div to hold the Current Location button and call the DIV contructor
+        var controlDiv2 = document.createElement('DIV');
+        controlConstruct(controlDiv2, map, "GPS", showCurrentLocation);
+        controlDiv2.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv2);
+	  
+	  //Create a div button to start caching map area around marker
+        var controlDiv3 = document.createElement('DIV');
+        controlConstruct(controlDiv3, map, "GET", downloadMaps);
+        controlDiv3.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv3);
+        
+      //Create a div to show 'WAIT' message when downloading maps
+      downloadDiv = document.createElement('DIV');
+      controlConstruct(downloadDiv, map, "DOWNLOADING", function(){});
+      downloadDiv.index = 1;
+      
+        
+      //Place markers where the map is clicked by the user
+      google.maps.event.addListener(map, 'click', function(event){
+            placeMarker(event.latLng);
+      });
+  }
+  
+    //Create a button with the appropriate text and function to call
+    function controlConstruct(controlDiv, map, divText, divFunction){
+        controlDiv.style.padding = '5px';
+        
+        //Set CSS for Control border
+        var controlUI = document.createElement('DIV');
+        controlUI.style.backgroundColor = '#3b5998';
+        controlUI.style.color = '#ffffff';
+        controlUI.style.textAlign = 'center';
+        controlUI.style.cursor = 'pointer';
+        controlDiv.appendChild(controlUI);
+        
+        //Set CSS to control interior
+        var controlText = document.createElement('DIV');
+        controlText.style.fontFamily = 'Helvetica';
+        controlText.style.fontSize = '12px';
+        controlText.style.padding = '5px';
+        controlText.style.fontWeight = 'bold';
+        controlText.innerHTML = divText;
+        controlUI.appendChild(controlText);
+        
+        //Setup the click event listener
+        //In case the button is clicked jump to divFunction
+        google.maps.event.addDomListener(controlUI, 'click', divFunction);
+        
+  }
+  
+  //This functions finds and displays a circle around the approximate location
+  //of the user
+  function showCurrentLocation(){
+        //Make sure the location obtained is via the GPS
+        var geoOptions = {
+                            enableHighAccuracy:  true
+                         };
+        //If GPS location is available, run the first function argument
+        //If GPS location is not available display an alert to the user and do nothing
+        navigator.geolocation.getCurrentPosition(function(position){
+            //Accuracy of the obtained location in meters
+            accuracyInMeters = position.coords.accuracy;
+            //Convert the location intoa LatLng object that is understood by google maps
+            var myLatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+            map.setCenter(myLatlng);
+            //Change the properties of positionCircle to display a circle in the users location
+            positionCircle.setCenter(myLatlng);
+            positionCircle.setRadius(accuracyInMeters);
+            //In order to enable the user to place markers inside the circle,
+            //remove the circle after 5 seconds
+            setTimeout("removePositionCircle()", 5000);
+        },function(){
+            alert("Location not found");
+        },
+        geoOptions);
+  }
+  
+  //Remove the position circle showing the users location
+  function removePositionCircle(){
+        positionCircle.setCenter(null);
+        positionCircle.setRadius(null);
+  }
+  
+  //Removes the last marker added by the user to dMarker
+  function removeMarker(){
+        var lastMarker = dMarkers.pop();
+        lastMarker.setMap(null);
+  }
+  
+  //Download area around all the markers specified by the user
+  function downloadMaps(){
+        //Show a message to the user stating that the maps are downloading
+        map.controls[google.maps.ControlPosition.MIDDLE_CENTER].push(downloadDiv);
+  
+        var currentTime = 0;
+        mLength = dMarkers.length;
+        var r;      
+        //Go through each marker
+        for(r=0; r<mLength; r++){
+            var currentMarker = dMarkers[r];
+            markerPos = currentMarker.getPosition();
+            markerLat = markerPos.lat();
+            markerLng = markerPos.lng();
+            
+            //Download the map around the marker
+            // For efficiency set the zoom to only 16
+            map.setZoom(16);
+            var i;
+            var j;
+            for(i = -maxScan; i <=maxScan; i++){
+                for(j = -maxScan; j<=maxScan; j++){
+                    currentTime = downloadArea(currentTime, markerLat + latMove*i, markerLng + lngMove*j);
+                }
+            }   
+            
+        }
+        
+        //Remove the downloading message once done
+        map.controls[google.maps.ControlPosition.MIDDLE_CENTER].pop();
+        
+  }
+  
+  //After a specified amount of time set the center of the map to lat and lng
+  function downloadArea(currentTime, lat, lng){
+        var str = "map.setCenter(new google.maps.LatLng(" + lat + ", " + lng + "));"
+        setTimeout(str, currentTime + 3000);
+        return currentTime + 6000;
+  }
+  
+  //When the user clicks the map, a marker is placed on the map and pushed into dMarker array
+  function placeMarker(location){
+        var marker = new google.maps.Marker({
+            map: map,
+            position: location
+        }
+        );
+        dMarkers.push(marker);  
+  }
+
+  //Wait for the page to be loaded before accessing google maps api
+  function loadScript() {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "http://maps.googleapis.com/maps/api/js?sensor=true&callback=initialize";
+    document.body.appendChild(script);
+  }
+  
+  window.onload = loadScript;
+
+</script>
+</head> 
+<body>
+	<div id="map_canvas"></div> 
+</body> 
+</html> 
